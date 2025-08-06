@@ -1,4 +1,3 @@
-# apps/real_world_overlay/CMakeLists.txt
 cmake_minimum_required(VERSION 3.10)
 project(real_world_overlay)
 
@@ -9,6 +8,7 @@ include_directories(
   ${GST_INCLUDE_DIRS}
   /usr/local/cuda/include
   /opt/nvidia/deepstream/deepstream-7.1/sources/includes
+  ${CMAKE_SOURCE_DIR}/include   # for toml.hpp
 )
 
 link_directories(
