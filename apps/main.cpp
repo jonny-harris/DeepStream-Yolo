@@ -2,6 +2,7 @@
 #include <gst/gst.h>
 #include <glib.h>
 #include <iostream>
+#include <string>
 #include "nvdsmeta.h"
 #include "gstnvdsmeta.h"
 #include "nvdsinfer.h"
@@ -10,14 +11,14 @@
 #include "nvds_version.h"
 #include "image_to_world.hpp"
 
-#include <toml.hpp>
-#include <vector>
+#include <toml++/toml.h>
 
 struct CameraConfig {
-    int width = 640, height = 480;  // default init
-    float pos_x = 0.f, pos_y = 0.f, pos_z = 0.f;
-    float rot_x = 0.f, rot_y = 0.f, rot_z = 0.f;
-    float fov_x = 0.f, fov_y = 0.f;
+    std::string device;
+    int width, height;
+    float pos_x, pos_y, pos_z;
+    float rot_x, rot_y, rot_z;
+    float fov_x, fov_y;
 };
 
 static GstPadProbeReturn osd_sink_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *info, gpointer user_data) {
@@ -54,100 +55,96 @@ int main(int argc, char *argv[]) {
 
     CameraConfig cfg;
 
+    // Set default values (optional)
+    cfg.device = "/dev/video0";
+    cfg.width = 1920;
+    cfg.height = 1080;
+    cfg.pos_x = cfg.pos_y = cfg.pos_z = 0.0f;
+    cfg.rot_x = cfg.rot_y = cfg.rot_z = 0.0f;
+    cfg.fov_x = cfg.fov_y = 1.0f;
+
+    // Load config.toml
     try {
-        const auto data = toml::parse_file("config.toml");
+        auto data = toml::parse_file("config.toml");
 
-        // resolution
-        auto res_node = data["resolution"];
-        if (!res_node || !res_node.is_array()) {
-            std::cerr << "Missing or invalid 'resolution'\n";
-            return -1;
-        }
-        std::vector<int> resolution;
-        for (auto& el : *res_node.as_array()) {
-            if (auto val = el.value<int>())
-                resolution.push_back(*val);
-        }
-        if (resolution.size() != 2) {
-            std::cerr << "resolution must have exactly 2 elements\n";
-            return -1;
-        }
-        cfg.width = resolution[0];
-        cfg.height = resolution[1];
+        if (auto device_node = data["device"].as_string())
+            cfg.device = device_node->get();
 
-        // position
-        auto pos_node = data["position"];
-        if (!pos_node || !pos_node.is_array()) {
-            std::cerr << "Missing or invalid 'position'\n";
+        if (auto resolution_node = data["resolution"].as_array()) {
+            if (resolution_node->size() == 2) {
+                cfg.width = static_cast<int>(resolution_node->at(0).value_or(1920));
+                cfg.height = static_cast<int>(resolution_node->at(1).value_or(1080));
+            } else {
+                std::cerr << "Invalid resolution size in config.toml\n";
+                return -1;
+            }
+        } else {
+            std::cerr << "Missing or invalid 'resolution' in config.toml\n";
             return -1;
         }
-        std::vector<double> position;
-        for (auto& el : *pos_node.as_array()) {
-            if (auto val = el.value<double>())
-                position.push_back(*val);
-        }
-        if (position.size() != 3) {
-            std::cerr << "position must have exactly 3 elements\n";
-            return -1;
-        }
-        cfg.pos_x = static_cast<float>(position[0]);
-        cfg.pos_y = static_cast<float>(position[1]);
-        cfg.pos_z = static_cast<float>(position[2]);
 
-        // rotation
-        auto rot_node = data["rotation"];
-        if (!rot_node || !rot_node.is_array()) {
-            std::cerr << "Missing or invalid 'rotation'\n";
+        if (auto position_node = data["position"].as_array()) {
+            if (position_node->size() == 3) {
+                cfg.pos_x = static_cast<float>(position_node->at(0).value_or(0.0));
+                cfg.pos_y = static_cast<float>(position_node->at(1).value_or(0.0));
+                cfg.pos_z = static_cast<float>(position_node->at(2).value_or(0.0));
+            } else {
+                std::cerr << "Invalid position size in config.toml\n";
+                return -1;
+            }
+        } else {
+            std::cerr << "Missing or invalid 'position' in config.toml\n";
             return -1;
         }
-        std::vector<double> rotation;
-        for (auto& el : *rot_node.as_array()) {
-            if (auto val = el.value<double>())
-                rotation.push_back(*val);
-        }
-        if (rotation.size() != 3) {
-            std::cerr << "rotation must have exactly 3 elements\n";
-            return -1;
-        }
-        cfg.rot_x = static_cast<float>(rotation[0]);
-        cfg.rot_y = static_cast<float>(rotation[1]);
-        cfg.rot_z = static_cast<float>(rotation[2]);
 
-        // fov
-        auto fov_node = data["fov"];
-        if (!fov_node || !fov_node.is_array()) {
-            std::cerr << "Missing or invalid 'fov'\n";
+        if (auto rotation_node = data["rotation"].as_array()) {
+            if (rotation_node->size() == 3) {
+                cfg.rot_x = static_cast<float>(rotation_node->at(0).value_or(0.0));
+                cfg.rot_y = static_cast<float>(rotation_node->at(1).value_or(0.0));
+                cfg.rot_z = static_cast<float>(rotation_node->at(2).value_or(0.0));
+            } else {
+                std::cerr << "Invalid rotation size in config.toml\n";
+                return -1;
+            }
+        } else {
+            std::cerr << "Missing or invalid 'rotation' in config.toml\n";
             return -1;
         }
-        std::vector<double> fov;
-        for (auto& el : *fov_node.as_array()) {
-            if (auto val = el.value<double>())
-                fov.push_back(*val);
-        }
-        if (fov.size() != 2) {
-            std::cerr << "fov must have exactly 2 elements\n";
-            return -1;
-        }
-        cfg.fov_x = static_cast<float>(fov[0]);
-        cfg.fov_y = static_cast<float>(fov[1]);
 
-        // Print loaded config to verify
-        std::cout << "Loaded config:\n";
-        std::cout << " Resolution: " << cfg.width << "x" << cfg.height << "\n";
-        std::cout << " Position: " << cfg.pos_x << ", " << cfg.pos_y << ", " << cfg.pos_z << "\n";
-        std::cout << " Rotation: " << cfg.rot_x << ", " << cfg.rot_y << ", " << cfg.rot_z << "\n";
-        std::cout << " FOV: " << cfg.fov_x << ", " << cfg.fov_y << "\n";
+        if (auto fov_node = data["fov"].as_array()) {
+            if (fov_node->size() == 2) {
+                cfg.fov_x = static_cast<float>(fov_node->at(0).value_or(1.0));
+                cfg.fov_y = static_cast<float>(fov_node->at(1).value_or(1.0));
+            } else {
+                std::cerr << "Invalid fov size in config.toml\n";
+                return -1;
+            }
+        } else {
+            std::cerr << "Missing or invalid 'fov' in config.toml\n";
+            return -1;
+        }
     }
     catch (const toml::parse_error& err) {
-        std::cerr << "Parsing failed: " << err.what() << "\n";
+        std::cerr << "Parsing failed: " << err.what() << std::endl;
+        return -1;
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error reading config.toml: " << e.what() << std::endl;
         return -1;
     }
 
-    // Build pipeline with resolution from config
-    gchar pipeline_desc[1024];
+    // Print loaded config to verify
+    std::cout << "Device: " << cfg.device << std::endl;
+    std::cout << "Resolution: " << cfg.width << " x " << cfg.height << std::endl;
+    std::cout << "Position: (" << cfg.pos_x << ", " << cfg.pos_y << ", " << cfg.pos_z << ")\n";
+    std::cout << "Rotation: (" << cfg.rot_x << ", " << cfg.rot_y << ", " << cfg.rot_z << ")\n";
+    std::cout << "FOV: (" << cfg.fov_x << ", " << cfg.fov_y << ")\n";
+
+    // Construct GStreamer pipeline description dynamically using device and resolution
+    gchar pipeline_desc[2048];
     snprintf(pipeline_desc, sizeof(pipeline_desc),
-        "nvv4l2camerasrc device=/dev/video1 ! "
-        "video/x-raw(memory:NVMM), format=UYVY, width=%d, height=%d ! "
+        "v4l2src device=/dev/%s ! "
+        "video/x-raw, width=%d, height=%d ! "
         "nvvidconv ! video/x-raw(memory:NVMM), format=I420 ! "
         "nvvidconv ! video/x-raw(memory:NVMM), format=NV12 ! "
         "nvstreammux name=mux batch-size=1 width=%d height=%d ! "
@@ -155,7 +152,7 @@ int main(int argc, char *argv[]) {
         "nvdsosd name=osd ! "
         "nvvidconv ! nvv4l2h264enc ! rtph264pay mtu=60000 ! "
         "udpsink clients=100.72.147.81:5000 sync=false",
-        cfg.width, cfg.height, cfg.width, cfg.height
+        cfg.device.c_str(), cfg.width, cfg.height, cfg.width, cfg.height
     );
 
     GError *error = nullptr;

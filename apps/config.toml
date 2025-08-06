@@ -1,3 +1,4 @@
+device = video0
 resolution = [3848, 2168]
 position = [0.750, 0.0, 0.0]
 rotation = [0.0, 180.0, -90.0]
