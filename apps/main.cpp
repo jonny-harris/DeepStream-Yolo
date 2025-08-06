@@ -2,6 +2,8 @@
 #include <gst/gst.h>
 #include <glib.h>
 #include <iostream>
+#include <vector>
+#include <toml.hpp>
 #include "nvdsmeta.h"
 #include "gstnvdsmeta.h"
 #include "nvdsinfer.h"
@@ -10,13 +12,17 @@
 #include "nvds_version.h"
 #include "image_to_world.hpp"
 
-#include <toml.hpp>
-
 struct CameraConfig {
-    int width, height;
-    float pos_x, pos_y, pos_z;
-    float rot_x, rot_y, rot_z;
-    float fov_x, fov_y;
+    int width = 1920;
+    int height = 1080;
+    float pos_x = 0.0f;
+    float pos_y = 0.0f;
+    float pos_z = 0.0f;
+    float rot_x = 0.0f;
+    float rot_y = 0.0f;
+    float rot_z = 0.0f;
+    float fov_x = 1.0f;
+    float fov_y = 1.0f;
 };
 
 static GstPadProbeReturn osd_sink_pad_buffer_probe(GstPad *pad, GstPadProbeInfo *info, gpointer user_data) {
@@ -94,6 +100,13 @@ int main(int argc, char *argv[]) {
             std::cerr << "Invalid fov size in config.toml\n";
             return -1;
         }
+
+        // Print loaded config to confirm
+        std::cout << "Loaded config.toml:" << std::endl;
+        std::cout << "  Resolution: " << cfg.width << "x" << cfg.height << std::endl;
+        std::cout << "  Position: (" << cfg.pos_x << ", " << cfg.pos_y << ", " << cfg.pos_z << ")" << std::endl;
+        std::cout << "  Rotation: (" << cfg.rot_x << ", " << cfg.rot_y << ", " << cfg.rot_z << ")" << std::endl;
+        std::cout << "  FOV: (" << cfg.fov_x << ", " << cfg.fov_y << ")" << std::endl;
     }
     catch (const toml::parse_error& err) {
         std::cerr << "Parsing failed: " << err.what() << std::endl;
