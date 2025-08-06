@@ -3,6 +3,7 @@
 #include <glib.h>
 #include <iostream>
 #include "nvdsmeta.h"
+#include "gstnvdsmeta.h"
 #include "nvdsinfer.h"
 #include "nvdsmeta_schema.h"
 #include "nvdsinfer_custom_impl.h"
