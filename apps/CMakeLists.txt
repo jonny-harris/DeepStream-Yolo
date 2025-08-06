@@ -8,7 +8,6 @@ include_directories(
   ${GST_INCLUDE_DIRS}
   /usr/local/cuda/include
   /opt/nvidia/deepstream/deepstream-7.1/sources/includes
-  ${CMAKE_SOURCE_DIR}/external/tomlplusplus/include  
 )
 
 link_directories(
