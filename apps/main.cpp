@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
     CameraConfig cfg;
 
     // Set default values (optional)
-    cfg.device = "/dev/video0";
+    cfg.device = "video0";
     cfg.width = 1920;
     cfg.height = 1080;
     cfg.pos_x = cfg.pos_y = cfg.pos_z = 0.0f;
@@ -148,7 +148,7 @@ int main(int argc, char *argv[]) {
         "nvvidconv ! video/x-raw(memory:NVMM), format=I420 ! "
         "nvvidconv ! video/x-raw(memory:NVMM), format=NV12 ! "
         "nvstreammux name=mux batch-size=1 width=%d height=%d ! "
-        "nvinfer config-file-path=config_infer_primary_yoloV10.txt ! "
+        "nvinfer config-file-path=/home/flux/DeepStream-Yolo/config_infer_primary_yoloV10.txt ! "
         "nvdsosd name=osd ! "
         "nvvidconv ! nvv4l2h264enc ! rtph264pay mtu=60000 ! "
         "udpsink clients=100.72.147.81:5000 sync=false",
