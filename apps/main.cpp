@@ -2,7 +2,7 @@
 #include <gst/gst.h>
 #include <glib.h>
 #include <iostream>
-#include "nvds_meta.h"
+#include "nvdsmeta.h"
 #include "nvdsinfer.h"
 #include "nvdsmeta_schema.h"
 #include "nvdsinfer_custom_impl.h"

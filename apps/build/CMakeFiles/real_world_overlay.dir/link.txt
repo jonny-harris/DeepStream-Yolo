@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/real_world_overlay.dir/main.cpp.o -o real_world_overlay  -lgstvideo-1.0 -lgstbase-1.0 -lgstreamer-1.0 -lgobject-2.0 -lglib-2.0 -ldl -lpthread 
