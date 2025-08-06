@@ -11,7 +11,7 @@
 #include "nvds_version.h"
 #include "image_to_world.hpp"
 
-#include <toml++/toml.h>
+#include <toml.h>
 
 struct CameraConfig {
     std::string device;
