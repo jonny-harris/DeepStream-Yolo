@@ -1,4 +1,4 @@
-// apps/real_world_overlay/main.cpp
+// main.cpp
 #include <gst/gst.h>
 #include <glib.h>
 #include <iostream>
@@ -10,7 +10,8 @@
 #include "nvds_version.h"
 #include "image_to_world.hpp"
 
-// Config struct holding camera parameters
+#include <toml.hpp>
+
 struct CameraConfig {
     int width, height;
     float pos_x, pos_y, pos_z;
@@ -50,32 +51,75 @@ static GstPadProbeReturn osd_sink_pad_buffer_probe(GstPad *pad, GstPadProbeInfo 
 int main(int argc, char *argv[]) {
     gst_init(&argc, &argv);
 
-    // Load your config here (hardcoded for now)
     CameraConfig cfg;
-    cfg.width = 3848;
-    cfg.height = 2168;
-    cfg.pos_x = 0.750f;
-    cfg.pos_y = 0.0f;
-    cfg.pos_z = 0.0f;
-    cfg.rot_x = 0.0f;
-    cfg.rot_y = 180.0f;
-    cfg.rot_z = -90.0f;
-    cfg.fov_x = 0.99788205886f;
-    cfg.fov_y = 0.65877955059f;
 
-    GError *error = nullptr;
-    gchar *pipeline_desc = g_strdup(
+    // Load config.toml
+    try {
+        const auto data = toml::parse("config.toml");
+
+        auto resolution = toml::find<std::vector<int>>(data, "resolution");
+        if (resolution.size() == 2) {
+            cfg.width = resolution[0];
+            cfg.height = resolution[1];
+        } else {
+            std::cerr << "Invalid resolution size in config.toml\n";
+            return -1;
+        }
+
+        auto position = toml::find<std::vector<double>>(data, "position");
+        if (position.size() == 3) {
+            cfg.pos_x = static_cast<float>(position[0]);
+            cfg.pos_y = static_cast<float>(position[1]);
+            cfg.pos_z = static_cast<float>(position[2]);
+        } else {
+            std::cerr << "Invalid position size in config.toml\n";
+            return -1;
+        }
+
+        auto rotation = toml::find<std::vector<double>>(data, "rotation");
+        if (rotation.size() == 3) {
+            cfg.rot_x = static_cast<float>(rotation[0]);
+            cfg.rot_y = static_cast<float>(rotation[1]);
+            cfg.rot_z = static_cast<float>(rotation[2]);
+        } else {
+            std::cerr << "Invalid rotation size in config.toml\n";
+            return -1;
+        }
+
+        auto fov = toml::find<std::vector<double>>(data, "fov");
+        if (fov.size() == 2) {
+            cfg.fov_x = static_cast<float>(fov[0]);
+            cfg.fov_y = static_cast<float>(fov[1]);
+        } else {
+            std::cerr << "Invalid fov size in config.toml\n";
+            return -1;
+        }
+    }
+    catch (const toml::parse_error& err) {
+        std::cerr << "Parsing failed: " << err.what() << std::endl;
+        return -1;
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error reading config.toml: " << e.what() << std::endl;
+        return -1;
+    }
+
+    // Construct GStreamer pipeline description dynamically using resolution
+    gchar pipeline_desc[1024];
+    snprintf(pipeline_desc, sizeof(pipeline_desc),
         "nvv4l2camerasrc device=/dev/video1 ! "
-        "video/x-raw(memory:NVMM), format=UYVY, width=1920, height=1080 ! "
+        "video/x-raw(memory:NVMM), format=UYVY, width=%d, height=%d ! "
         "nvvidconv ! video/x-raw(memory:NVMM), format=I420 ! "
         "nvvidconv ! video/x-raw(memory:NVMM), format=NV12 ! "
-        "nvstreammux name=mux batch-size=1 width=1920 height=1080 ! "
+        "nvstreammux name=mux batch-size=1 width=%d height=%d ! "
         "nvinfer config-file-path=config_infer_primary_yoloV10.txt ! "
         "nvdsosd name=osd ! "
         "nvvidconv ! nvv4l2h264enc ! rtph264pay mtu=60000 ! "
-        "udpsink clients=100.72.147.81:5000 sync=false"
+        "udpsink clients=100.72.147.81:5000 sync=false",
+        cfg.width, cfg.height, cfg.width, cfg.height
     );
 
+    GError *error = nullptr;
     GstElement *pipeline = gst_parse_launch(pipeline_desc, &error);
     if (!pipeline) {
         std::cerr << "Failed to create pipeline: " << error->message << std::endl;
@@ -86,7 +130,6 @@ int main(int argc, char *argv[]) {
     GstElement *osd = gst_bin_get_by_name(GST_BIN(pipeline), "osd");
     GstPad *osd_sink_pad = gst_element_get_static_pad(osd, "sink");
 
-    // Pass pointer to config struct as user_data
     gst_pad_add_probe(osd_sink_pad, GST_PAD_PROBE_TYPE_BUFFER, osd_sink_pad_buffer_probe, &cfg, NULL);
 
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
